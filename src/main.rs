@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::Read;
 
-use compression_tool::CompressionTool;
+use compression_tool::compression::CompressionTool;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
