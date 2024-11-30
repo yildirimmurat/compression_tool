@@ -1,3 +1,8 @@
+use std::cmp::Ordering;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::fmt::Result;
+
 struct HuffmanBaseNode {
     is_leaf: bool,
     weight :i32,
@@ -31,6 +36,10 @@ impl HuffmanLeafNode {
     pub fn value(&self) -> char {
         self.element
     }
+
+    pub fn weight(&self) -> i32 {
+        self.base.weight
+    }
 }
 
 pub struct HuffmanInternalNode {
@@ -56,6 +65,10 @@ impl HuffmanInternalNode {
     }
     pub fn right(&self) -> &HuffmanNode {
         &self.right
+    }
+
+    pub fn weight(&self) -> i32 {
+        self.base.weight()
     }
 }
 
@@ -100,3 +113,59 @@ impl HuffmanNode {
         }
     }
 }
+
+// Implementing Ord and PartialOrd for the HuffmanNode so we can use BinaryHeap
+impl Ord for HuffmanNode {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.weight().cmp(&other.weight())
+    }
+}
+
+impl PartialOrd for HuffmanNode {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Eq for HuffmanNode {
+
+}
+
+impl PartialEq for HuffmanNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.weight() == other.weight()
+    }
+}
+
+// For printing the tree 
+impl Debug for HuffmanNode {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        match self {
+            HuffmanNode::Leaf(leaf) => write!(f, "Leaf({} : {})", leaf.value(), leaf.base.weight()),
+            HuffmanNode::Internal(internal) => write!(f, "Internal({}, left: {:?}, right: {:?})", internal.base.weight(), internal.left(), internal.right()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Test HuffmanLeafNode creation
+    #[test]
+    fn test_leaf_node_creation() {
+        let leaf = HuffmanLeafNode::new(3, 'a');
+        assert_eq!(leaf.value(), 'a');
+        assert_eq!(leaf.weight(), 3);
+    }
+
+    // Test HuffmanInternalNode creation
+    #[test]
+    fn test_internal_node_creation() {
+        let left = HuffmanNode::Leaf(HuffmanLeafNode::new(2, 'b'));
+        let right = HuffmanNode::Leaf(HuffmanLeafNode::new(3, 'a'));
+        let internal_node = HuffmanInternalNode::new(5, left, right);
+        assert_eq!(internal_node.base.weight, 5);
+    }
+}
+

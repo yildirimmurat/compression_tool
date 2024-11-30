@@ -14,11 +14,7 @@ fn main() {
 
     let mut tool = CompressionTool::new(&content);
     match tool.compress() {
-        Ok(map) => {
-            for (ch, count) in map {
-                println!("character: '{}', count: {}", ch, count);
-            }
-        },
-        Err(_) => println!("error compressing content")
+        Ok(root) => println!("{:?}", root),
+        Err(e) => println!("Error: {}", e),
     }
 }
