@@ -14,7 +14,10 @@ fn main() {
 
     let mut tool = CompressionTool::new(&content);
     match tool.compress() {
-        Ok(root) => println!("{:?}", root),
+        Ok(root) => {
+            root.print_tree();
+            println!("{:?}", root)
+        },
         Err(e) => println!("Error: {}", e),
     }
 }

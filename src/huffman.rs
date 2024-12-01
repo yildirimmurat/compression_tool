@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fmt::Result;
+use std::collections::HashMap;
 
 struct HuffmanBaseNode {
     is_leaf: bool,
@@ -112,12 +113,63 @@ impl HuffmanNode {
             HuffmanNode::Internal(internal) => Some(&internal.right()),
         }
     }
+
+    // Function to print the tree structure from top to bottom
+    pub fn print_tree(&self) -> String {
+        self.print_tree_helper(0)
+    }
+
+    // Helper function for printing the tree with depth tracking
+    fn print_tree_helper(&self, depth: usize) -> String {
+        match self {
+            HuffmanNode::Leaf(leaf) => {
+                // Print leaf node with indentation based on depth
+                format!("{}Leaf: {}\n", "  ".repeat(depth), leaf.value())
+            },
+            HuffmanNode::Internal(internal) => {
+                // Start with the internal node label
+                let mut result = format!("{}Internal Node\n", "  ".repeat(depth));
+
+                // Recursively print left and right children with updated depth
+                let left_str = internal.left.print_tree_helper(depth + 1);
+                let right_str = internal.right.print_tree_helper(depth + 1);
+
+                // Merge left and right strings and return
+                result.push_str(&left_str);
+                result.push_str(&right_str);
+
+                result
+            },
+        }
+    }
+
+    // Function to generate the prefix codes
+    pub fn generate_prefix_codes(&self, codes: &mut HashMap<char, String>) {
+        self.generate_prefix_codes_helper("".to_string(), codes);
+    }
+
+    fn generate_prefix_codes_helper(&self, prefix: String, codes: &mut HashMap<char, String>) {
+        match self {
+            HuffmanNode::Leaf(leaf) => {
+                // Store the prefix code for the leaf node
+                codes.insert(leaf.value(), prefix);
+            },
+            HuffmanNode::Internal(internal) => {
+                // For left child, append "0"
+                internal.left.generate_prefix_codes_helper(prefix.clone() + "0", codes);
+                
+                // For right child, append "1"
+                internal.right.generate_prefix_codes_helper(prefix.clone() + "1", codes);
+            },
+        }
+    }
+    
 }
 
 // Implementing Ord and PartialOrd for the HuffmanNode so we can use BinaryHeap
 impl Ord for HuffmanNode {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.weight().cmp(&other.weight())
+        other.weight().cmp(&self.weight())
     }
 }
 
@@ -166,6 +218,149 @@ mod tests {
         let right = HuffmanNode::Leaf(HuffmanLeafNode::new(3, 'a'));
         let internal_node = HuffmanInternalNode::new(5, left, right);
         assert_eq!(internal_node.base.weight, 5);
+    }
+
+    #[test]
+    fn test_print_tree_top_to_bottom() {
+        // Create a simple Huffman tree:
+        //        Internal
+        //       /      \
+        //   Internal   Leaf(a)
+        //   /    \     
+        //  Leaf(b) Leaf(c)
+    
+        let node_a = HuffmanNode::Leaf(HuffmanLeafNode::new(5, 'a'));
+        let node_b = HuffmanNode::Leaf(HuffmanLeafNode::new(3, 'b'));
+        let node_c = HuffmanNode::Leaf(HuffmanLeafNode::new(2, 'c'));
+    
+        // Create the internal nodes with leaf nodes swapped to the right
+        let internal1 = HuffmanNode::Internal(HuffmanInternalNode::new(
+            node_c.weight() + node_b.weight(),
+            node_c,
+            node_b,
+        ));
+    
+        // Swap to make the internal node have leaf 'a' on the right side
+        let root = HuffmanNode::Internal(HuffmanInternalNode::new(
+            internal1.weight() + node_a.weight(),
+            internal1,
+            node_a
+        ));
+    
+        // Test the print_tree method
+        let tree_str = root.print_tree();
+    
+        let expected_str = "\
+    Internal Node (Weight: 10)
+      Internal Node (Weight: 5)
+        Leaf: c
+        Leaf: b
+      Leaf: a
+    ";
+        assert_eq!(tree_str, expected_str);
+    }
+    
+
+    // Test Prefix Code Generation
+    #[test]
+    fn test_generate_prefix_codes() {
+        // Create a simple Huffman tree:
+        //        Internal
+        //       /      \
+        //   Leaf(a)  Internal
+        //             /      \
+        //        Leaf(b)   Leaf(c)
+
+        let node_a = HuffmanNode::Leaf(HuffmanLeafNode::new(5, 'a'));
+        let node_b = HuffmanNode::Leaf(HuffmanLeafNode::new(3, 'b'));
+        let node_c = HuffmanNode::Leaf(HuffmanLeafNode::new(2, 'c'));
+
+        let internal1 = HuffmanInternalNode::new(
+            node_b.weight() + node_c.weight(),
+            node_b,
+            node_c
+        );
+
+        let root = HuffmanNode::Internal(internal1);
+        let root = HuffmanNode::Internal(
+            HuffmanInternalNode::new(node_a.weight() + root.weight(), node_a, root)
+        );
+
+        let mut codes = HashMap::new();
+        root.generate_prefix_codes(&mut codes);
+
+        // Expected prefix codes:
+        let mut expected_codes = HashMap::new();
+        expected_codes.insert('a', "0".to_string());
+        expected_codes.insert('b', "10".to_string());
+        expected_codes.insert('c', "11".to_string());
+
+        // Test if the generated prefix codes match the expected ones
+        assert_eq!(codes, expected_codes);
+    }
+
+    // Test with an empty tree (single node case)
+    #[test]
+    fn test_single_node_tree() {
+        // Single node tree (just one leaf node)
+        let node_a = HuffmanNode::Leaf(HuffmanLeafNode::new(5, 'a'));
+
+        let mut codes = HashMap::new();
+        node_a.generate_prefix_codes(&mut codes);
+
+        let mut expected_codes = HashMap::new();
+        expected_codes.insert('a', "".to_string());  // No prefix for a single node
+
+        // Test if the generated prefix codes match the expected ones
+        assert_eq!(codes, expected_codes);
+    }
+
+    // Test with a more complex tree
+    #[test]
+    fn test_complex_tree() {
+        // Create a complex Huffman tree:
+        //         Internal
+        //        /      \
+        //   Internal   Internal
+        //   /    \     /     \
+        //  Leaf(a) Leaf(b) Leaf(c) Leaf(d)
+
+        let node_a = HuffmanNode::Leaf(HuffmanLeafNode::new(5, 'a'));
+        let node_b = HuffmanNode::Leaf(HuffmanLeafNode::new(3, 'b'));
+        let node_c = HuffmanNode::Leaf(HuffmanLeafNode::new(2, 'c'));
+        let node_d = HuffmanNode::Leaf(HuffmanLeafNode::new(1, 'd'));
+
+        let internal1 = HuffmanNode::Internal(HuffmanInternalNode::new(
+            node_a.weight() + node_b.weight(),
+            node_a,
+            node_b,
+        ));
+        let internal2 = HuffmanNode::Internal(HuffmanInternalNode::new(
+            node_c.weight() + node_d.weight(),
+            node_c,
+            node_d,
+        ));
+
+        let root = HuffmanNode::Internal(
+            HuffmanInternalNode::new(
+                internal1.weight() + internal2.weight(),
+                internal1,
+                internal2,
+            )
+        );
+
+        let mut codes = HashMap::new();
+        root.generate_prefix_codes(&mut codes);
+
+        // Expected prefix codes for the given tree
+        let mut expected_codes = HashMap::new();
+        expected_codes.insert('a', "00".to_string());
+        expected_codes.insert('b', "01".to_string());
+        expected_codes.insert('c', "10".to_string());
+        expected_codes.insert('d', "11".to_string());
+
+        // Test if the generated prefix codes match the expected ones
+        assert_eq!(codes, expected_codes);
     }
 }
 

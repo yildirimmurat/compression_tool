@@ -27,13 +27,24 @@ impl CompressionTool {
         }
 
         while heap.len() > 1 {
+            // Pop the two nodes with the smallest frequencies
             let left: HuffmanNode = heap.pop().unwrap();
             let right: HuffmanNode = heap.pop().unwrap();
+                
+            // Combine the two nodes into an internal node
             let combined_weight: i32 = left.weight() + right.weight();
             let internal_node: HuffmanInternalNode = HuffmanInternalNode::new(combined_weight, left, right);
             heap.push(HuffmanNode::Internal(internal_node));
         }
 
-        Ok(heap.pop().unwrap())
+        let root = heap.pop().unwrap();
+
+        let mut codes: HashMap<char, String> = HashMap::new();
+        root.generate_prefix_codes(&mut codes);
+        for (ch, code) in &codes {
+            println!("Character: '{}' -> code: {}", ch, code);
+        }
+
+        Ok(root)
     }
 }
