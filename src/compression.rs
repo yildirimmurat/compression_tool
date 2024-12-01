@@ -23,25 +23,21 @@ impl CompressionTool {
         map
     }
 
-    // Method to write header with frequency map to the output file
     fn write_header(&self, file: &mut File, frequency_map: HashMap<char, i32>) -> io::Result<()> {
-        // Write the number of unique characters (for future decoding)
         let num_chars: u32 = frequency_map.len() as u32;
         file.write_all(&num_chars.to_le_bytes())?;
-
-        // Write the frequency table to the file
+    
         for (ch, count) in frequency_map {
-            file.write_all(&ch.to_string().as_bytes())?;
+            file.write_all(&[ch as u8])?;
             file.write_all(&count.to_le_bytes())?;
         }
-
-        // Write a delimiter to indicate the end of the header
+    
         file.write_all(&[0x00])?;
-
         Ok(())
     }
+    
 
-    pub fn compress(&mut self, output_file: &str) -> Result<(), String> {
+    pub fn compress(&mut self, output_file: &str) -> Result<Vec<u8>, String> {
         let mut file: File = File::create(output_file).map_err(|e| e.to_string())?;
 
         let frequency_map: HashMap<char, i32> = self.generate_frequency_map();
@@ -80,24 +76,35 @@ impl CompressionTool {
         file.write_all(&compressed_data).map_err(|e| e.to_string())?;
 
 
-        Ok(())
+        Ok(compressed_data)
     }
 
     fn compressed_data(&self, codes: &HashMap<char, String>) -> Vec<u8> {
-        let mut compressed_bits = String::new();
+        let mut compressed_bits: String = String::new();
+        
+        // Generate the compressed binary string
         for ch in self.input.chars() {
-            compressed_bits.push_str(&codes[&ch]);
+            compressed_bits.push_str(&codes[&ch]);  // Append the Huffman code for each character
         }
-
-        // Convert the binary string to byte vector
-        let mut result = Vec::new();
+    
+        // Pad the compressed data to be a multiple of 8 bits if necessary
+        let padding_bits: usize = 8 - compressed_bits.len() % 8;
+        for _ in 0..padding_bits {
+            compressed_bits.push('0'); // Add padding zeros to make it byte-aligned
+        }
+    
+        // Convert the binary string to a byte vector
+        let mut result: Vec<u8> = Vec::new();
         for chunk in compressed_bits.as_bytes().chunks(8) {
-            let byte = chunk.iter().fold(0, |acc, &bit| (acc <<1) | (bit - b'0') as u8);
+            let byte: u8 = chunk.iter().fold(0, |acc, &bit| (acc << 1) | (bit - b'0') as u8);
             result.push(byte);
         }
-
+    
+        // Store the padding information to be used during decompression (as a header or in the data itself)
+        result.insert(0, padding_bits as u8); // Add padding byte at the beginning of the result
+    
         result
     }
-
-
+    
+    
 }

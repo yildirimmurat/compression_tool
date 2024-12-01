@@ -88,8 +88,8 @@ impl HuffmanNode {
 
     pub fn is_leaf(&self) -> bool {
         match self {
-            HuffmanNode::Leaf(_) => true,
-            HuffmanNode::Internal(_) => false,
+            HuffmanNode::Leaf(leaf) => leaf.base.is_leaf(),
+            HuffmanNode::Internal(internal) => internal.base.is_leaf(),
         }
     }
 
