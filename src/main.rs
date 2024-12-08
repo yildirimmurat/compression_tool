@@ -13,8 +13,7 @@ fn main() -> io::Result<()> {
     let input_file = &args[1];        // Path to the input file
     let compressed_file = &args[2];    // Path to save the compressed file
     let decompressed_file = &args[3];  // Path to save the decompressed file
-
-    // Step 1: Read the input file
+    
     let mut input_content = String::new();
     let mut input_file = File::open(input_file)?;
     input_file.read_to_string(&mut input_content)?;

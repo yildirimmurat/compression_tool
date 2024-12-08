@@ -1,5 +1,5 @@
 use crate::huffman::{HuffmanLeafNode, HuffmanInternalNode, HuffmanNode};
-use std::{collections::{BinaryHeap, HashMap}, fs::File, io::{self, Read}};
+use std::{collections::{BinaryHeap, BTreeMap}, fs::File, io::{self, Read}};
 
 pub struct DecompressionTool {
     file_path: String,
@@ -12,8 +12,8 @@ impl DecompressionTool {
         }
     }
 
-    pub fn read_header(file: &mut File) -> io::Result<HashMap<char, i32>> {
-        let mut frequency_map: HashMap<char, i32> = HashMap::new();
+    pub fn read_header(file: &mut File) -> io::Result<BTreeMap<char, i32>> {
+        let mut frequency_map: BTreeMap<char, i32> = BTreeMap::new();
     
         let mut num_chars_bytes: [u8; 4] = [0u8; 4];
         file.read_exact(&mut num_chars_bytes)?;
@@ -38,7 +38,7 @@ impl DecompressionTool {
     }
     
 
-    pub fn rebuild_tree(&self, frequency_map: &HashMap<char, i32>) -> Option<HuffmanNode> {
+    pub fn rebuild_tree(&self, frequency_map: &BTreeMap<char, i32>) -> Option<HuffmanNode> {
         let mut heap: BinaryHeap<HuffmanNode> = BinaryHeap::new();
 
         // Push each character into the heap as a leaf node
@@ -69,33 +69,64 @@ impl DecompressionTool {
         let mut current_node: &HuffmanNode = tree;
         let mut decoded_string: String = String::new();
 
-        // Extract padding byte from the compressed data
-        let padding_byte = compressed_data[0]; // First byte is padding
-        
-        // Convert compressed data to bits (a vector of booleans)
-        let bits: Vec<bool> = compressed_data[1..]
-            .into_iter()
-            .flat_map(|byte| (0..8).map(move |i| (byte >> (7 - i)) & 1 == 1))
+        // Extract the padding bits from the first byte (which indicates how many bits were padded)
+        let padding_bits = compressed_data[0] as usize; // First byte indicates padding
+        let mut bits: Vec<bool> = compressed_data[1..]
+            .iter() // Use `iter()` to iterate over the bytes
+            .flat_map(|byte| (0..8).map(move |i| (byte >> (7u8 - i)) & 1u8 == 1u8)) // Convert bytes to bits
             .collect();
-    
+
+        // Handle the last byte padding
+        if padding_bits > 0 {
+            // We want to remove the padding bits from the start of the last byte.
+            let last_byte = &compressed_data[compressed_data.len() - 1];
+            let mut last_byte_bits = (0..8)
+                .map(|i| (last_byte >> (7 - i)) & 1 == 1)
+                .collect::<Vec<bool>>();
+
+            // Truncate the padding bits from the start of the last byte
+            last_byte_bits = last_byte_bits[padding_bits..].to_vec();
+
+            // Remove the last byte's bits from the original bitstream and append the truncated bits
+            bits = bits[..bits.len() - 8].to_vec();
+            bits.extend(last_byte_bits);
+        }
+
         // Traverse the Huffman tree to decode the bits
-        for (i, bit) in bits.iter().enumerate() {
+        let mut current_bit = 0;
+        while current_bit < bits.len() {
+            let bit = bits[current_bit];
+            current_bit += 1;
+
+            // Move down the tree based on the bit
             current_node = match current_node {
                 HuffmanNode::Leaf(leaf) => {
                     decoded_string.push(leaf.value());  // Append the decoded character
                     tree // Reset to the root of the tree for the next character
                 },
                 HuffmanNode::Internal(internal) => {
+                    // Traverse the internal node based on the bit (0 = left, 1 = right)
                     if bit {
-                        &internal.right() // Move to the right child if the bit is 1
+                        let next_node = &internal.right(); // Move to the right child if the bit is 1
+                        if let HuffmanNode::Leaf(leaf) = next_node {
+                            decoded_string.push(leaf.value());
+                            tree // Reset to the root of the tree for the next character
+                        } else {
+                            next_node // Continue moving down the internal node tree
+                        }
                     } else {
-                        &internal.left()  // Move to the left child if the bit is 0
+                        let next_node = &internal.left(); // Move to the left child if the bit is 0
+                        if let HuffmanNode::Leaf(leaf) = next_node {
+                            decoded_string.push(leaf.value());
+                            tree // Reset to the root of the tree for the next character
+                        } else {
+                            next_node // Continue moving down the internal node tree
+                        }
                     }
                 },
             };
-
         }
-    
+
         decoded_string
     }
     

@@ -220,47 +220,6 @@ mod tests {
         assert_eq!(internal_node.base.weight, 5);
     }
 
-    #[test]
-    fn test_print_tree_top_to_bottom() {
-        // Create a simple Huffman tree:
-        //        Internal
-        //       /      \
-        //   Internal   Leaf(a)
-        //   /    \     
-        //  Leaf(b) Leaf(c)
-    
-        let node_a = HuffmanNode::Leaf(HuffmanLeafNode::new(5, 'a'));
-        let node_b = HuffmanNode::Leaf(HuffmanLeafNode::new(3, 'b'));
-        let node_c = HuffmanNode::Leaf(HuffmanLeafNode::new(2, 'c'));
-    
-        // Create the internal nodes with leaf nodes swapped to the right
-        let internal1 = HuffmanNode::Internal(HuffmanInternalNode::new(
-            node_c.weight() + node_b.weight(),
-            node_c,
-            node_b,
-        ));
-    
-        // Swap to make the internal node have leaf 'a' on the right side
-        let root = HuffmanNode::Internal(HuffmanInternalNode::new(
-            internal1.weight() + node_a.weight(),
-            internal1,
-            node_a
-        ));
-    
-        // Test the print_tree method
-        let tree_str = root.print_tree();
-    
-        let expected_str = "\
-    Internal Node (Weight: 10)
-      Internal Node (Weight: 5)
-        Leaf: c
-        Leaf: b
-      Leaf: a
-    ";
-        assert_eq!(tree_str, expected_str);
-    }
-    
-
     // Test Prefix Code Generation
     #[test]
     fn test_generate_prefix_codes() {

@@ -1,6 +1,6 @@
 use crate::huffman::{HuffmanLeafNode, HuffmanInternalNode, HuffmanNode};
 use std::{collections::{BinaryHeap, HashMap}, fs::File, io::{self, Write}};
-
+use std::collections::BTreeMap;
 pub struct CompressionTool {
     input: String, // todo: should also support streams
 }
@@ -12,8 +12,8 @@ impl CompressionTool {
         }
     }
 
-    fn generate_frequency_map(&self) -> HashMap<char, i32> {
-        let mut map: HashMap<char, i32> = HashMap::new();
+    fn generate_frequency_map(&self) -> BTreeMap<char, i32> {
+        let mut map: BTreeMap<char, i32> = BTreeMap::new();
 
         for ch in self.input.chars() {
             let counter: &mut i32 = map.entry(ch).or_insert(0);
@@ -23,7 +23,7 @@ impl CompressionTool {
         map
     }
 
-    fn write_header(&self, file: &mut File, frequency_map: HashMap<char, i32>) -> io::Result<()> {
+    fn write_header(&self, file: &mut File, frequency_map: BTreeMap<char, i32>) -> io::Result<()> {
         let num_chars: u32 = frequency_map.len() as u32;
         file.write_all(&num_chars.to_le_bytes())?;
     
@@ -40,7 +40,7 @@ impl CompressionTool {
     pub fn compress(&mut self, output_file: &str) -> Result<Vec<u8>, String> {
         let mut file: File = File::create(output_file).map_err(|e| e.to_string())?;
 
-        let frequency_map: HashMap<char, i32> = self.generate_frequency_map();
+        let frequency_map: BTreeMap<char, i32> = self.generate_frequency_map();
 
         self.write_header(&mut file, frequency_map.clone())
             .map_err(|e| format!("Error writing header: {}", e))?;
@@ -89,14 +89,11 @@ impl CompressionTool {
     
         // Pad the compressed data to be a multiple of 8 bits if necessary
         let padding_bits: usize = 8 - compressed_bits.len() % 8;
-        for _ in 0..padding_bits {
-            compressed_bits.push('0'); // Add padding zeros to make it byte-aligned
-        }
     
         // Convert the binary string to a byte vector
         let mut result: Vec<u8> = Vec::new();
         for chunk in compressed_bits.as_bytes().chunks(8) {
-            let byte: u8 = chunk.iter().fold(0, |acc, &bit| (acc << 1) | (bit - b'0') as u8);
+            let byte: u8 = chunk.iter().fold(0, |acc, &bit| (acc << 1) | (bit - b'0'));
             result.push(byte);
         }
     
