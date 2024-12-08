@@ -19,7 +19,7 @@ fn main() -> io::Result<()> {
     input_file.read_to_string(&mut input_content)?;
 
     // Step 2: Compress the content and save to the compressed file
-    let mut compression_tool = CompressionTool::new(&input_content);
+    let mut compression_tool = CompressionTool::new(input_content);
     compression_tool.compress(compressed_file).expect("Compression failed");
 
     // Step 3: Decompress the compressed file and save to the decompressed file

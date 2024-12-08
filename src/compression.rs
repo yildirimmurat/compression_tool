@@ -6,9 +6,9 @@ pub struct CompressionTool {
 }
 
 impl CompressionTool {
-    pub fn new(i: &str) -> Self {
+    pub fn new(i: String) -> Self {
         CompressionTool {
-            input: i.to_string(),
+            input: i,
         }
     }
 

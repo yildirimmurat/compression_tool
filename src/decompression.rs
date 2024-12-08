@@ -81,7 +81,7 @@ impl DecompressionTool {
             // We want to remove the padding bits from the start of the last byte.
             let last_byte = &compressed_data[compressed_data.len() - 1];
             let mut last_byte_bits = (0..8)
-                .map(|i| (last_byte >> (7 - i)) & 1 == 1)
+                .map(|i| (last_byte >> (7 - i)) & 1u8 == 1u8)
                 .collect::<Vec<bool>>();
 
             // Truncate the padding bits from the start of the last byte
