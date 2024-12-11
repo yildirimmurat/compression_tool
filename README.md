@@ -51,4 +51,17 @@ cczip test.txt [test.zip]
 cczip test.dat [test.txt]
 ```
 
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Contributions
+
+Contributions are welcome! Feel free to open issues or submit pull requests to improve the tool. To contribute:
+
+1. Fork the repository.
+2. Create a new branch.
+3. Make your changes.
+4. Submit a pull request.
+
 
