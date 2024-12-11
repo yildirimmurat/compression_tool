@@ -3,5 +3,14 @@
 version = 3
 
 [[package]]
+name = "bit-io"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc20c4b4a315d582b092c173c5dd26462cc6c49fe80c158b6a1a2d1216f85c5a"
+
+[[package]]
 name = "compression_tool"
 version = "0.1.0"
+dependencies = [
+ "bit-io",
+]

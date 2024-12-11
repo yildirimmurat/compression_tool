@@ -1,51 +1,48 @@
-use crate::huffman::{HuffmanLeafNode, HuffmanInternalNode, HuffmanNode};
-use std::{collections::{BinaryHeap, HashMap}, fs::File, io::{self, Write}};
-use std::collections::BTreeMap;
+use std::{io::{Write}};
+use std::collections::{BTreeMap, HashMap};
+use std::io::{Read, Seek, SeekFrom};
+//use bit_io::Writer as BitWriter;
+use std::collections::BinaryHeap;
+use crate::huffman::{HuffmanInternalNode, HuffmanLeafNode, HuffmanNode};
+
 pub struct CompressionTool {
-    input: String, // todo: should also support streams
 }
 
 impl CompressionTool {
-    pub fn new(i: String) -> Self {
+    pub fn new() -> Self {
         CompressionTool {
-            input: i,
         }
-    }
+    }    
 
-    fn generate_frequency_map(&self) -> BTreeMap<char, i32> {
-        let mut map: BTreeMap<char, i32> = BTreeMap::new();
+    pub fn compress<R: Read + Seek, W: Write>(&mut self, reader: &mut R, writer: &mut W) {
+        let mut buffer: [u8; 1024] = [0u8; 1024];
+        let mut frequency_map: BTreeMap<char, i32> = BTreeMap::new();
 
-        for ch in self.input.chars() {
-            let counter: &mut i32 = map.entry(ch).or_insert(0);
-            *counter += 1;
+        // Count frequencies
+        loop {
+            let bytes_read = reader.read(&mut buffer).unwrap();
+            if bytes_read == 0 {
+                break;
+            }
+
+            // Count character frequencies in the buffer
+            for &byte in &buffer[..bytes_read] {
+                let ch = byte as char;
+                *frequency_map.entry(ch).or_insert(0) += 1;
+            }
         }
 
-        map
-    }
-
-    fn write_header(&self, file: &mut File, frequency_map: BTreeMap<char, i32>) -> io::Result<()> {
-        let num_chars: u32 = frequency_map.len() as u32;
-        file.write_all(&num_chars.to_le_bytes())?;
-    
-        for (ch, count) in frequency_map {
-            file.write_all(&[ch as u8])?;
-            file.write_all(&count.to_le_bytes())?;
-        }
-    
-        file.write_all(&[0x00])?;
-        Ok(())
-    }
-    
-
-    pub fn compress(&mut self, output_file: &str) -> Result<Vec<u8>, String> {
-        let mut file: File = File::create(output_file).map_err(|e| e.to_string())?;
-
-        let frequency_map: BTreeMap<char, i32> = self.generate_frequency_map();
-
-        self.write_header(&mut file, frequency_map.clone())
-            .map_err(|e| format!("Error writing header: {}", e))?;
-
+        // Write frequency map size to header
+        let num_chars: u32 = frequency_map.len() as u32; // Correct size of the map
+        let _ = writer.write_all(&num_chars.to_le_bytes()); // Write the size as a little-endian 4-byte integer
         
+        // Now write map to header
+        for (ch, count) in &frequency_map {
+            let _ = writer.write_all(&[*ch as u8]); // Write the character (1 byte)
+            let _ = writer.write_all(&count.to_le_bytes()); // Write the frequency (4 bytes)
+        }
+
+        let _ = writer.write_all(&[0x00]);
 
         let mut heap: BinaryHeap<HuffmanNode> = BinaryHeap::new();
         for (ch, count) in frequency_map {
@@ -53,12 +50,12 @@ impl CompressionTool {
             heap.push(HuffmanNode::Leaf(leaf));
         }
 
-        // Build the Huffman tree
+        // Now, generate the Huffman tree, encode the data, and write it incrementally
         while heap.len() > 1 {
             // Pop the two nodes with the smallest frequencies
             let left: HuffmanNode = heap.pop().unwrap();
             let right: HuffmanNode = heap.pop().unwrap();
-                
+
             // Combine the two nodes into an internal node
             let combined_weight: i32 = left.weight() + right.weight();
             let internal_node: HuffmanInternalNode = HuffmanInternalNode::new(combined_weight, left, right);
@@ -72,36 +69,50 @@ impl CompressionTool {
         root.generate_prefix_codes(&mut codes);
 
         // Now write the compressed data after the header
-        let compressed_data = self.compressed_data(&codes);
-        file.write_all(&compressed_data).map_err(|e| e.to_string())?;
+        let mut compressed_bits: Vec<u8> = Vec::new();
 
+        // Go back to the start of the file
+        reader.seek(SeekFrom::Start(0)).unwrap();
+        loop {
+            let bytes_read = reader.read(&mut buffer).unwrap();
+            if bytes_read == 0 {
+                break;
+            }
 
-        Ok(compressed_data)
-    }
-
-    fn compressed_data(&self, codes: &HashMap<char, String>) -> Vec<u8> {
-        let mut compressed_bits: String = String::new();
-        
-        // Generate the compressed binary string
-        for ch in self.input.chars() {
-            compressed_bits.push_str(&codes[&ch]);  // Append the Huffman code for each character
+            for &byte in &buffer[..bytes_read] {
+                if let Some(code) = codes.get(&(byte as char)) {
+                    for bit in code.chars() {
+                        compressed_bits.push(if bit == '1' { 1 } else { 0 });
+                    }
+                }
+            }
         }
-    
-        // Pad the compressed data to be a multiple of 8 bits if necessary
-        let padding_bits: usize = 8 - compressed_bits.len() % 8;
-    
-        // Convert the binary string to a byte vector
+
+        // Calculate padding to make the bit length a multiple of 8
+        let padding_bits = (8 - compressed_bits.len() % 8) % 8;
+
+        if padding_bits > 0 {
+            // Prepend padding bits (insert them before the last byte)
+            // Insert `padding_bits` number of zeroes at the beginning of compressed_bits
+            let padding = vec![0; padding_bits]; // Create the padding vector
+            compressed_bits.splice(compressed_bits.len() - compressed_bits.len() % 8..compressed_bits.len() - compressed_bits.len() % 8, padding);
+        }
+
+        // Convert the bit vector to a byte vector
         let mut result: Vec<u8> = Vec::new();
-        for chunk in compressed_bits.as_bytes().chunks(8) {
-            let byte: u8 = chunk.iter().fold(0, |acc, &bit| (acc << 1) | (bit - b'0'));
+        for chunk in compressed_bits.chunks(8) {
+            let mut byte: u8 = 0;
+            for (i, &bit) in chunk.iter().enumerate() {
+                byte |= bit << (7 - i); // Shift each bit into the correct position
+            }
             result.push(byte);
         }
-    
-        // Store the padding information to be used during decompression (as a header or in the data itself)
-        result.insert(0, padding_bits as u8); // Add padding byte at the beginning of the result
-    
-        result
+
+        // Insert the padding information at the beginning of the result
+        result.insert(0, padding_bits as u8);
+
+        // Write the result to the writer (file or other output)
+        writer.write_all(&result).unwrap();
     }
-    
-    
+
 }

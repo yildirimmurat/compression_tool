@@ -1,49 +1,44 @@
 use crate::huffman::{HuffmanLeafNode, HuffmanInternalNode, HuffmanNode};
-use std::{collections::{BinaryHeap, BTreeMap}, fs::File, io::{self, Read}};
+use std::{collections::{BinaryHeap, BTreeMap}, io::{Read, Seek, Write}};
 
 pub struct DecompressionTool {
-    file_path: String,
 }
 
 impl DecompressionTool {
-    pub fn new(file_path: &str) -> Self {
+    pub fn new() -> Self {
         DecompressionTool {
-            file_path: file_path.to_string(),
         }
     }
-
-    pub fn read_header(file: &mut File) -> io::Result<BTreeMap<char, i32>> {
+    
+    pub fn decompress<R: Read + Seek, W: Write>(&self, reader: &mut R, writer: &mut W) {
+        // Step 1: Read the frequency map from the header
         let mut frequency_map: BTreeMap<char, i32> = BTreeMap::new();
-    
+
         let mut num_chars_bytes: [u8; 4] = [0u8; 4];
-        file.read_exact(&mut num_chars_bytes)?;
+        let _ = reader.read_exact(&mut num_chars_bytes);
         let num_chars: usize = u32::from_le_bytes(num_chars_bytes) as usize;
-    
+
         for _ in 0..num_chars {
             let mut char_buffer = [0u8; 1];
-            file.read_exact(&mut char_buffer)?;
+            let _  = reader.read_exact(&mut char_buffer);
             let ch = char_buffer[0] as char;
-    
+
             let mut count_bytes = [0u8; 4];
-            file.read_exact(&mut count_bytes)?;
+            let _ = reader.read_exact(&mut count_bytes);
             let count = i32::from_le_bytes(count_bytes);
-    
+
             frequency_map.insert(ch, count);
         }
-    
-        // Skip the delimiter
-        file.read_exact(&mut [0u8; 1])?;
-    
-        Ok(frequency_map)
-    }
-    
 
-    pub fn rebuild_tree(&self, frequency_map: &BTreeMap<char, i32>) -> Option<HuffmanNode> {
+        // Skip the delimiter
+        let _  = reader.read_exact(&mut [0u8; 1]);
+
+        // Step 2: Rebuild the Huffman tree from the frequency map
         let mut heap: BinaryHeap<HuffmanNode> = BinaryHeap::new();
 
         // Push each character into the heap as a leaf node
         for (ch, count) in frequency_map {
-            let leaf = HuffmanLeafNode::new(*count, *ch);
+            let leaf = HuffmanLeafNode::new(count, ch);
             heap.push(HuffmanNode::Leaf(leaf));
         }
 
@@ -56,18 +51,14 @@ impl DecompressionTool {
             heap.push(HuffmanNode::Internal(internal_node));
         }
 
-        heap.pop() // root
-    }
+        let huffman_tree = heap.pop().unwrap(); // root
 
-    fn read_compressed_data(&self, file: &mut File) -> io::Result<Vec<u8>> {
+        // Step 3: Read the compressed data
         let mut compressed_data = Vec::new();
-        file.read_to_end(&mut compressed_data)?;
-        Ok(compressed_data)
-    }
+        let _ = reader.read_to_end(&mut compressed_data);
 
-    fn decode_data(&self, tree: &HuffmanNode, compressed_data: Vec<u8>) -> String {
-        let mut current_node: &HuffmanNode = tree;
-        let mut decoded_string: String = String::new();
+        // Step4: Decode the data using the Huffman tree
+        let mut current_node: &HuffmanNode = &huffman_tree;
 
         // Extract the padding bits from the first byte (which indicates how many bits were padded)
         let padding_bits = compressed_data[0] as usize; // First byte indicates padding
@@ -101,24 +92,24 @@ impl DecompressionTool {
             // Move down the tree based on the bit
             current_node = match current_node {
                 HuffmanNode::Leaf(leaf) => {
-                    decoded_string.push(leaf.value());  // Append the decoded character
-                    tree // Reset to the root of the tree for the next character
+                    let _ = writer.write_all(&[leaf.value() as u8]);  // Append the decoded character
+                    &huffman_tree // Reset to the root of the tree for the next character
                 },
                 HuffmanNode::Internal(internal) => {
                     // Traverse the internal node based on the bit (0 = left, 1 = right)
                     if bit {
                         let next_node = &internal.right(); // Move to the right child if the bit is 1
                         if let HuffmanNode::Leaf(leaf) = next_node {
-                            decoded_string.push(leaf.value());
-                            tree // Reset to the root of the tree for the next character
+                            let _ = writer.write_all(&[leaf.value() as u8]);
+                            &huffman_tree // Reset to the root of the tree for the next character
                         } else {
                             next_node // Continue moving down the internal node tree
                         }
                     } else {
                         let next_node = &internal.left(); // Move to the left child if the bit is 0
                         if let HuffmanNode::Leaf(leaf) = next_node {
-                            decoded_string.push(leaf.value());
-                            tree // Reset to the root of the tree for the next character
+                            let _ = writer.write_all(&[leaf.value() as u8]);
+                            &huffman_tree // Reset to the root of the tree for the next character
                         } else {
                             next_node // Continue moving down the internal node tree
                         }
@@ -126,27 +117,5 @@ impl DecompressionTool {
                 },
             };
         }
-
-        decoded_string
-    }
-    
-    
-
-    pub fn decompress(&self) -> Result<String, String> {
-        let mut file = File::open(&self.file_path).map_err(|e| e.to_string())?;
-
-        // Read the frequency map from the header
-        let frequency_map = DecompressionTool::read_header(&mut file).map_err(|e| e.to_string())?;
-
-        // Rebuild the Huffman tree from the frequency map
-        let huffman_tree = self.rebuild_tree(&frequency_map).ok_or("Failed to rebuild the Huffman tree")?;
-
-        // Read the compressed data
-        let compressed_data = self.read_compressed_data(&mut file).map_err(|e| e.to_string())?;
-
-        // Decode the data using the Huffman tree
-        let decoded_string = self.decode_data(&huffman_tree, compressed_data);
-
-        Ok(decoded_string)
     }
 }
