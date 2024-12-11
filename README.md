@@ -1,26 +1,56 @@
-Steps to create a compression tool Unix Command (compression_tool)
+# Compression Tool
 
-- Compile the program
-```bash 
+This is a simple file compression and decompression tool that uses Huffman coding to compress files. The tool supports two primary operations:
+
+- **Compression**: Compresses an input file and stores the result in an output file.
+- **Decompression**: Decompresses a compressed file and stores the result in an output file.
+
+The tool is used through the command line with the following commands:
+
+- `cczip` for compression
+- `ccunzip` for decompression
+
+## Steps to Create and Use the Compression Tool
+
+### 1. Compile the Program
+
+First, build the program by running the following command:
+
+```bash
 cargo build --release
 ```
 
-- Move the executable to a directory in your PATH
+### 2. Move the executables to a directory in your PATH
+
+To make the tool accessible from anywhere in your terminal, move the compiled executables to a directory that is included in your system's PATH.
+
 ```bash
-sudo cp ~/projects/compression_tool/target/release/compression_tool /usr/local/bin/
+sudo cp target/release/cczip /usr/local/bin/
+sudo cp target/release/ccunzip /usr/local/bin/
 ```
 
-- Verify the installation
+### 3. Verify the installation
+
+To verify the installation, check if the executables are accessible from anywhere in your terminal:
+
 ```bash
-compression_tool test.txt
+which cczip
+which ccunzip
 ```
 
-- Optional: Create a symbolic link
+
+## Usage
+
+### 1. Compress a file using cczip
+
 ```bash
-sudo ln -s ~/projects/compression_tool/target/release/compression_tool /usr/local/bin/compression_tool
+cczip test.txt [test.zip]
 ```
 
-- Check if it is working
+### 2. Decompress a file using ccunzip
+
 ```bash
-which compression_tool
+cczip test.dat [test.txt]
 ```
+
+

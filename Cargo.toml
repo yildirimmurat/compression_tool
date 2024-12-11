@@ -4,7 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bit-io = "0.1.0"
 
 [[bin]]
-name = "compression_tool"
+name = "cczip"
+path = "src/cczip.rs"
+
+[[bin]]
+name = "ccunzip"
+path = "src/ccunzip.rs"

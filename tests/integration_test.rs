@@ -6,7 +6,7 @@ use std::io::{BufReader, BufWriter, Read, Write};
 // Test compression and decompression of a file
 #[test]
 fn test_compress_decompress() {
-    let input_file_path = "hello.txt";
+    let input_file_path = "tests/test.txt";
     let compressed_file_path = "compressed_output.dat";
     let decompressed_file_path = "decompressed_output.txt";
 

@@ -1,7 +1,6 @@
 use std::{io::{Write}};
 use std::collections::{BTreeMap, HashMap};
 use std::io::{Read, Seek, SeekFrom};
-//use bit_io::Writer as BitWriter;
 use std::collections::BinaryHeap;
 use crate::huffman::{HuffmanInternalNode, HuffmanLeafNode, HuffmanNode};
 
@@ -114,5 +113,4 @@ impl CompressionTool {
         // Write the result to the writer (file or other output)
         writer.write_all(&result).unwrap();
     }
-
 }
