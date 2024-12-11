@@ -39,15 +39,13 @@ which ccunzip
 ```
 
 
-## Usage
-
-### 1. Compress a file using cczip
+### 4. Compress a file using cczip
 
 ```bash
 cczip test.txt [test.zip]
 ```
 
-### 2. Decompress a file using ccunzip
+### 5. Decompress a file using ccunzip
 
 ```bash
 cczip test.dat [test.txt]
